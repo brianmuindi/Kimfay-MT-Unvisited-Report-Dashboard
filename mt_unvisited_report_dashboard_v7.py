@@ -656,7 +656,7 @@ def normalize_date_range(date_range):
     return (date_range, date_range)
 
 
-def render_filter_banner(date_range, region_sel, supervisor_sel, rep_sel, show_key_only) -> None:
+def render_filter_banner(date_range, region_sel, supervisor_sel, rep_sel, show_key_only, key_account_sel) -> None:
     parts = []
 
     dr = normalize_date_range(date_range)
@@ -671,6 +671,9 @@ def render_filter_banner(date_range, region_sel, supervisor_sel, rep_sel, show_k
         parts.append(f"Rep: {', '.join(rep_sel[:6])}{'…' if len(rep_sel)>6 else ''}")
     if show_key_only:
         parts.append("Key accounts only")
+
+    if key_account_sel:
+        parts.append(f"Key accounts: {', '.join(key_account_sel[:6])}{'…' if len(key_account_sel)>6 else ''}")
 
     msg = " | ".join(parts) if parts else "No filters applied"
     html = (
@@ -1070,6 +1073,21 @@ with st.sidebar:
 
     show_key_only = st.checkbox("Key accounts only", value=False)
 
+    # Key Accounts selector (applies across ALL tabs)
+    if "KEY_ACCOUNT_NAME" in unvisited.columns:
+        ka_options = [
+            str(x).strip()
+            for x in unvisited["KEY_ACCOUNT_NAME"].dropna().unique().tolist()
+            if str(x).strip() != ""
+        ]
+        ka_options = [k for k in STANDARD_KEY_ACCOUNTS if k in ka_options] + sorted(
+            [k for k in ka_options if k not in STANDARD_KEY_ACCOUNTS]
+        )
+    else:
+        ka_options = []
+
+    key_account_sel = st.multiselect("Key accounts", options=ka_options, default=ka_options)
+
 
 def apply_unvisited_filters(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
@@ -1085,6 +1103,10 @@ def apply_unvisited_filters(df: pd.DataFrame) -> pd.DataFrame:
 
     if show_key_only and "IS_KEY_ACCOUNT" in d.columns:
         d = d[d["IS_KEY_ACCOUNT"] == True]  # noqa: E712
+
+    # Filter to selected key accounts (if KEY_ACCOUNT_NAME exists)
+    if key_account_sel is not None and len(key_account_sel) > 0 and "KEY_ACCOUNT_NAME" in d.columns:
+        d = d[d["KEY_ACCOUNT_NAME"].astype(str).str.strip().isin([str(x).strip() for x in key_account_sel])]
 
     dr = normalize_date_range(date_range)
 
@@ -1189,7 +1211,7 @@ with st.expander('✅ Data health & quick checks', expanded=False):
 # ----------------------------
 st.title(APP_TITLE)
 
-render_filter_banner(date_range, region_sel, supervisor_sel, rep_sel, show_key_only)
+render_filter_banner(date_range, region_sel, supervisor_sel, rep_sel, show_key_only, key_account_sel)
 
 # ----------------------------
 # TABS
