@@ -1216,7 +1216,7 @@ render_filter_banner(date_range, region_sel, supervisor_sel, rep_sel, show_key_o
 # ----------------------------
 # TABS
 # ----------------------------
-tab_overview, tab_supervisor, tab_supervisor_routes, tab_key, tab_region, tab_detail, tab_offroute, tab_leave, tab_status, tab_download = st.tabs(
+tab_overview, tab_supervisor, tab_supervisor_routes, tab_key, tab_region, tab_detail, tab_unexplained, tab_offroute, tab_leave, tab_status, tab_download = st.tabs(
     [
         "📌 Overview",
         "👥 Supervisors",
@@ -1224,12 +1224,14 @@ tab_overview, tab_supervisor, tab_supervisor_routes, tab_key, tab_region, tab_de
         "⭐ Key Accounts",
         "🗺️ Region & Reps",
         "📋 Detail",
+        "❓ Unexplained",
         "🚗 Off-Route",
         "🌴 Leave",
         "✅ Status Updates",
         "⬇️ Download",
     ]
 )
+
 
 
 with tab_supervisor_routes:
@@ -1505,6 +1507,78 @@ with tab_detail:
         filtered_unvisited[cols_first + [c for c in filtered_unvisited.columns if c not in cols_first]].head(2000),
         use_container_width=True,
     )
+
+# ----------------------------
+# UNEXPLAINED
+# ----------------------------
+with tab_unexplained:
+    st.markdown("## ❓ Unexplained Unvisited Outlets")
+    st.caption("Unvisited outlets with no Leave, Off-Route, or Status Update match (respects all global filters).")
+
+    if "ROOT_CAUSE" not in filtered_unvisited.columns:
+        st.warning("ROOT_CAUSE not available. Ensure DATE exists and modules are uploaded.")
+    else:
+        unexplained_df = filtered_unvisited[
+            filtered_unvisited["ROOT_CAUSE"].astype("string") == "UNEXPLAINED"
+        ].copy()
+
+        # KPIs
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.metric("Unexplained outlets", f"{len(unexplained_df):,}")
+        with c2:
+            st.metric("Affected reps", f"{unexplained_df['REP'].nunique():,}" if "REP" in unexplained_df.columns else "—")
+        with c3:
+            st.metric("Affected supervisors", f"{unexplained_df['SUPERVISOR_CLEAN'].nunique():,}" if "SUPERVISOR_CLEAN" in unexplained_df.columns else "—")
+        with c4:
+            st.metric("Key account unexplained", f"{int(unexplained_df['IS_KEY_ACCOUNT'].fillna(False).sum()):,}" if "IS_KEY_ACCOUNT" in unexplained_df.columns else "—")
+
+        if unexplained_df.empty:
+            st.success("No unexplained unvisited outlets under current filters.")
+        else:
+            # Breakdown tables (great for management)
+            b1, b2 = st.columns(2)
+
+            with b1:
+                st.markdown("### By Region")
+                if "REGION" in unexplained_df.columns:
+                    reg = (
+                        unexplained_df.groupby("REGION", dropna=False)
+                        .size()
+                        .reset_index(name="UNVISITED")
+                        .sort_values("UNVISITED", ascending=False)
+                    )
+                    st.dataframe(reg, use_container_width=True)
+                    st.bar_chart(reg.set_index("REGION")["UNVISITED"])
+
+            with b2:
+                st.markdown("### By Supervisor")
+                if "SUPERVISOR_CLEAN" in unexplained_df.columns:
+                    sup = (
+                        unexplained_df.groupby("SUPERVISOR_CLEAN", dropna=False)
+                        .size()
+                        .reset_index(name="UNVISITED")
+                        .sort_values("UNVISITED", ascending=False)
+                    )
+                    st.dataframe(sup, use_container_width=True)
+                    st.bar_chart(sup.set_index("SUPERVISOR_CLEAN")["UNVISITED"])
+
+            st.markdown("### Top reps (unexplained)")
+            rep_break = (
+                unexplained_df.groupby(["REP", "SUPERVISOR_CLEAN", "REGION"], dropna=False)
+                .size()
+                .reset_index(name="UNVISITED")
+                .sort_values("UNVISITED", ascending=False)
+            )
+            st.dataframe(rep_break.head(50), use_container_width=True)
+
+            st.markdown("### Detailed unexplained list")
+            cols_first = [c for c in ["DATE", "REGION", "REP", "SUPERVISOR_CLEAN", "CUSTOMER", "KEY_ACCOUNT_NAME"] if c in unexplained_df.columns]
+            st.dataframe(
+                unexplained_df[cols_first + [c for c in unexplained_df.columns if c not in cols_first]].head(2000),
+                use_container_width=True,
+            )
+
 
 
 # ----------------------------
