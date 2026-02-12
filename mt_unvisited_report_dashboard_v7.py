@@ -169,7 +169,9 @@ def remove_test_reps(series: pd.Series) -> pd.Series:
         "RAEL ROBI",
         "LILIAN KALONDU KIMEU",
         "KEVIN WERUNGA",
-        "GEROGINA KIILU",
+        "GEORGINA KIILU",
+        "TECLA AYORE",
+        "BENTA ACHIENG",
     ]
 
     # Normalize for matching
