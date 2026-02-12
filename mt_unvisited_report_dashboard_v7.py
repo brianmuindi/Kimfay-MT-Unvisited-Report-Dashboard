@@ -152,15 +152,37 @@ def detect_key_account(customer) -> str:
 
 
 def remove_test_reps(series: pd.Series) -> pd.Series:
-    """Remove reps with MERCH TEST or ORDER in their name (test/system accounts)."""
-    s = series.astype("string")
-    mask = (
-        s.str.upper().str.contains("MERCH TEST", na=False)
-        | s.str.upper().str.contains("ORDER", na=False)
-    )
-    s[mask] = pd.NA
-    return s
+    """
+    Remove:
+    - Test routes / system users
+    - Specific excluded staff
+    """
 
+    s = series.astype("string")
+
+    # --- Names / patterns to drop ---
+    EXCLUDED_NAMES = [
+        "MERCH TEST",
+        "ORDER",
+        "TEST ROUTE",
+        "TEST ROUTES",
+        "RAEL ROBI",
+        "LILIAN KALONDU KIMEU",
+        "KEVIN WERUNGA",
+        "GEROGINA KIILU",
+    ]
+
+    # Normalize for matching
+    s_upper = s.str.upper().str.strip()
+
+    mask = s_upper.isin(EXCLUDED_NAMES)
+
+    # Also catch partial matches like "Test Route 1"
+    mask |= s_upper.str.contains("TEST ROUTE", na=False)
+
+    s[mask] = pd.NA
+
+    return s
 
 
 def normalize_person_name(name: str) -> str:
